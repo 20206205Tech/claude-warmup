@@ -1,28 +1,45 @@
-name: CI Demo với Secrets
+name: Claude 5h Warmup
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   workflow_dispatch:
+  repository_dispatch:
+    types: [job_trigger]
 
 jobs:
-  build-and-test:
+  claude_warmup:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Kiểm tra biến môi trường và Secret
         env:
-          MY_SECRET_KEY: ${{ secrets.API_KEY }}
+          CLAUDE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
           echo "Bắt đầu chạy tiến trình..."
-          if [ -z "$MY_SECRET_KEY" ]; then
-            echo "Lỗi: Không tìm thấy API_KEY!"
+          if [ -z "$CLAUDE_OAUTH_TOKEN" ]; then
+            echo "Lỗi: Không tìm thấy CLAUDE_OAUTH_TOKEN!"
             exit 1
           else
-            echo "Đã nạp thành công API_KEY!"
-            # Lưu ý: GitHub tự động che (mask) giá trị secret bằng dấu *** nếu bạn cố tình echo nó ra log
-            echo "Giá trị hiển thị trong log: $MY_SECRET_KEY"
+            echo "Đã nạp thành công CLAUDE_OAUTH_TOKEN!"
+            echo "Độ dài token: ${#CLAUDE_OAUTH_TOKEN} ký tự"
           fi
+
+      - name: Trigger Claude 5h Window
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+        run: |
+          npx -y @anthropic-ai/claude-code --version
+
+          for i in 1 2 3; do
+            echo "Attempt $i..."
+            if npx -y @anthropic-ai/claude-code --model haiku -p "Reply with 1"; then
+              echo "Warmup successful!"
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
