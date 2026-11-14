@@ -37,7 +37,7 @@ jobs:
 
           for i in 1 2 3 4; do
             echo "Attempt $i..."
-            if timeout 30s claude --model haiku -p "1"; then
+            if timeout 30s claude --model haiku --max-turns 1 -p "Output only the character '1' and nothing else."; then
               echo "Warmup successful!"
               exit 0
             fi
