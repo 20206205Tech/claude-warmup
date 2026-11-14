@@ -25,17 +25,29 @@ jobs:
           fi
 
       - name: Trigger Claude 5h Window
+        timeout-minutes: 3
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
-          npx -y @anthropic-ai/claude-code --version
+          npm install -g @anthropic-ai/claude-code
+          claude --version
 
-          for i in 1 2 3; do
+          # Thử tối đa 4 lần, thời gian nghỉ tăng dần: 5s, 15s, 30s
+          DELAYS=(5 15 30 0)
+
+          for i in 1 2 3 4; do
             echo "Attempt $i..."
-            if npx -y @anthropic-ai/claude-code --model haiku -p "Reply with 1"; then
+            if timeout 30s claude --model haiku -p "1"; then
               echo "Warmup successful!"
               exit 0
             fi
-            sleep 10
+            
+            SLEEP_TIME=${DELAYS[$((i-1))]}
+            if [ "$SLEEP_TIME" -gt 0 ]; then
+              echo "Thất bại, nghỉ ${SLEEP_TIME}s trước khi thử lại..."
+              sleep $SLEEP_TIME
+            fi
           done
+
+          echo "Warmup thất bại sau 4 lần thử."
           exit 1
