@@ -16,7 +16,6 @@ jobs:
         env:
           CLAUDE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
-          echo "Bắt đầu chạy tiến trình..."
           if [ -z "$CLAUDE_OAUTH_TOKEN" ]; then
             echo "Lỗi: Không tìm thấy CLAUDE_OAUTH_TOKEN!"
             exit 1
