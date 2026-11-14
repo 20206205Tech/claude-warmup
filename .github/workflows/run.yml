@@ -29,25 +29,14 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
-          npm install -g @anthropic-ai/claude-code
-          claude --version
+          npx -y @anthropic-ai/claude-code --version
 
-          # Thử tối đa 4 lần, thời gian nghỉ tăng dần: 5s, 15s, 30s
-          DELAYS=(5 15 30 0)
-
-          for i in 1 2 3 4; do
+          for i in 1 2 3; do
             echo "Attempt $i..."
-            if timeout 30s claude --model haiku --max-turns 1 -p "Output only the character '1' and nothing else."; then
+            if npx -y @anthropic-ai/claude-code --model haiku -p "Reply with 1"; then
               echo "Warmup successful!"
               exit 0
             fi
-            
-            SLEEP_TIME=${DELAYS[$((i-1))]}
-            if [ "$SLEEP_TIME" -gt 0 ]; then
-              echo "Thất bại, nghỉ ${SLEEP_TIME}s trước khi thử lại..."
-              sleep $SLEEP_TIME
-            fi
+            sleep 30
           done
-
-          echo "Warmup thất bại sau 4 lần thử."
           exit 1
