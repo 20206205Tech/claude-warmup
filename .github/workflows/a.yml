@@ -1,34 +1,37 @@
-name: Check Claude Usage via CLI OAuth Token
+name: Check Claude Usage via CLI Interactive
 
 on:
   push:
   workflow_dispatch:
-  schedule:
-    - cron: '0 */4 * * *'
 
 jobs:
-  check-usage:
+  cli-usage:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch Usage via CLI OAuth Endpoint
-        env:
-          OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI & expect
         run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -H "Authorization: Bearer $OAUTH_TOKEN" \
-            -H "anthropic-beta: oauth-2025-04-20" \
-            -H "User-Agent: claude-code/1.0.0" \
-            -H "Accept: application/json" \
-            "https://api.anthropic.com/api/oauth/usage")
+          sudo apt-get update && sudo apt-get install -y expect
+          npm install -g @anthropic-ai/claude-code
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          echo "HTTP Status: $HTTP_CODE"
-          if [ "$HTTP_CODE" -eq 200 ]; then
-            echo "$BODY" | jq .
-          else
-            echo "Lỗi gọi API OAuth:"
-            echo "$BODY"
-            exit 1
-          fi
+      - name: Run /usage inside Claude CLI
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+        run: |
+          expect -c '
+            log_user 1
+            set timeout 30
+            spawn claude
+            expect {
+              "Try" {}
+              ">" {}
+              timeout { exit 1 }
+            }
+            send "/usage\r"
+            sleep 3
+            send "\003"
+            expect eof
+          ' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g'
