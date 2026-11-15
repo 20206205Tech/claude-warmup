@@ -16,11 +16,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y expect
           npm install -g @anthropic-ai/claude-code
-
-      - name: Pre-configure Claude & Run /usage
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
-        run: |
+          
           # 1. Tạo sẵn config để bỏ qua màn hình chọn Theme và Trust Folder
           mkdir -p ~/.claude
           cat << 'EOF' > ~/.claude.json
@@ -34,6 +30,11 @@ jobs:
             }
           }
           EOF
+
+      - name: Pre-configure Claude & Run /usage
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+        run: |
 
           # 2. Chạy expect và xử lý nốt các prompt nếu còn sót
           expect -c '
