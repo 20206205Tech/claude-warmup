@@ -1,6 +1,7 @@
 name: Check Claude Usage via CLI OAuth Token
 
 on:
+  push:
   workflow_dispatch:
   schedule:
     - cron: '0 */4 * * *'
