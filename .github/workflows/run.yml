@@ -1,8 +1,8 @@
 name: Claude 5h Warmup
 
 on:
-  # push:
-    # branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
   repository_dispatch:
     types: [job_trigger]
