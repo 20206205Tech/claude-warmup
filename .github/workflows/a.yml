@@ -1,58 +1,108 @@
-name: Check Claude Usage via CLI
+# name: Check Claude Usage via CLI
+
+# on:
+#   push:
+#   workflow_dispatch:
+
+# jobs:
+#   cli-usage:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: '20'
+
+#       - name: Install Claude Code CLI & expect
+#         run: |
+#           sudo apt-get update && sudo apt-get install -y expect
+#           npm install -g @anthropic-ai/claude-code
+
+#           # 1. Tạo sẵn config để bỏ qua màn hình chọn Theme và Trust Folder
+#           mkdir -p ~/.claude
+#           cat << 'EOF' > ~/.claude.json
+#           {
+#             "hasCompletedOnboarding": true,
+#             "theme": "dark",
+#             "projects": {
+#               "/home/runner/work": {
+#                 "hasTrustDialogAccepted": true
+#               }
+#             }
+#           }
+#           EOF
+
+#       - name: Pre-configure Claude & Run /usage
+#         env:
+#           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+#         run: |
+
+#           # 2. Chạy expect và xử lý nốt các prompt nếu còn sót
+#           expect -c '
+#             log_user 1
+#             set timeout 30
+#             spawn claude
+#             expect {
+#               "Choose the text style" { send "\r"; exp_continue }
+#               "Yes, I trust this folder" { send "\r"; exp_continue }
+#               "Try" {}
+#               ">" {}
+#               timeout { puts "\n[ERROR] Timeout waiting for Claude prompt"; exit 1 }
+#             }
+#             sleep 1
+#             send "/usage\r"
+#             sleep 4
+#             send "\003"
+#             sleep 1
+#             send "\003"
+#             expect eof
+#           ' | sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g'
+
+
+name: Check Claude Usage (Direct API)
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  cli-usage:
+  check-usage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Claude Code CLI & expect
-        run: |
-          sudo apt-get update && sudo apt-get install -y expect
-          npm install -g @anthropic-ai/claude-code
-          
-          # 1. Tạo sẵn config để bỏ qua màn hình chọn Theme và Trust Folder
-          mkdir -p ~/.claude
-          cat << 'EOF' > ~/.claude.json
-          {
-            "hasCompletedOnboarding": true,
-            "theme": "dark",
-            "projects": {
-              "/home/runner/work": {
-                "hasTrustDialogAccepted": true
-              }
-            }
-          }
-          EOF
-
-      - name: Pre-configure Claude & Run /usage
+      - name: Fetch & Format Usage
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
+          uv run --with httpx --with rich python - << 'EOF'
+          import os
+          import httpx
+          from rich.console import Console
+          from rich.table import Table
 
-          # 2. Chạy expect và xử lý nốt các prompt nếu còn sót
-          expect -c '
-            log_user 1
-            set timeout 30
-            spawn claude
-            expect {
-              "Choose the text style" { send "\r"; exp_continue }
-              "Yes, I trust this folder" { send "\r"; exp_continue }
-              "Try" {}
-              ">" {}
-              timeout { puts "\n[ERROR] Timeout waiting for Claude prompt"; exit 1 }
-            }
-            sleep 1
-            send "/usage\r"
-            sleep 4
-            send "\003"
-            sleep 1
-            send "\003"
-            expect eof
-          ' | sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g'
+          token = os.environ["CLAUDE_CODE_OAUTH_TOKEN"].strip()
+          resp = httpx.get(
+              "https://api.anthropic.com/api/oauth/usage",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "anthropic-beta": "oauth-2025-04-20",
+                  "User-Agent": "claude-code/2.1.197",
+              },
+              timeout=15,
+          )
+          resp.raise_for_status()
+          data = resp.json()
+
+          table = Table(title="Claude Code Quota Usage")
+          table.add_column("Window", style="cyan")
+          table.add_column("Utilization", style="magenta")
+          table.add_column("Resets At", style="green")
+
+          for key, val in data.items():
+              if isinstance(val, dict) and "utilization" in val:
+                  table.add_row(
+                      key,
+                      f"{val.get('utilization')}%",
+                      str(val.get("resets_at", "N/A")),
+                  )
+
+          Console().print(table)
+          EOF
