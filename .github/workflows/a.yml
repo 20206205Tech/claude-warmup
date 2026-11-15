@@ -85,7 +85,6 @@ jobs:
 
 
 
-    steps:
       - name: Fetch & Format Usage
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
