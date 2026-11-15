@@ -17,26 +17,41 @@ jobs:
           sudo apt-get update && sudo apt-get install -y expect
           npm install -g @anthropic-ai/claude-code
 
-      - name: Restore Credentials & Run /usage
+      - name: Pre-configure Claude & Run /usage
         env:
-          CLAUDE_CREDENTIALS_JSON: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
-          # mkdir -p ~/.claude
-          # echo "$CLAUDE_CREDENTIALS_JSON" > ~/.claude/.credentials.json
-          # chmod 600 ~/.claude/.credentials.json
+          # 1. Tạo sẵn config để bỏ qua màn hình chọn Theme và Trust Folder
+          mkdir -p ~/.claude
+          cat << 'EOF' > ~/.claude.json
+          {
+            "hasCompletedOnboarding": true,
+            "theme": "dark",
+            "projects": {
+              "/home/runner/work": {
+                "hasTrustDialogAccepted": true
+              }
+            }
+          }
+          EOF
 
+          # 2. Chạy expect và xử lý nốt các prompt nếu còn sót
           expect -c '
             log_user 1
             set timeout 30
             spawn claude
             expect {
+              "Choose the text style" { send "\r"; exp_continue }
               "Yes, I trust this folder" { send "\r"; exp_continue }
               "Try" {}
               ">" {}
-              timeout { exit 1 }
+              timeout { puts "\n[ERROR] Timeout waiting for Claude prompt"; exit 1 }
             }
+            sleep 1
             send "/usage\r"
-            sleep 3
+            sleep 4
+            send "\003"
+            sleep 1
             send "\003"
             expect eof
-          ' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g'
+          ' | sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g'
