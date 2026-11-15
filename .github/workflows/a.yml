@@ -1,4 +1,4 @@
-name: Check Claude Usage via CLI Interactive
+name: Check Claude Usage via CLI
 
 on:
   push:
@@ -17,15 +17,20 @@ jobs:
           sudo apt-get update && sudo apt-get install -y expect
           npm install -g @anthropic-ai/claude-code
 
-      - name: Run /usage inside Claude CLI
+      - name: Restore Credentials & Run /usage
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+          CLAUDE_CREDENTIALS_JSON: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
         run: |
+          # mkdir -p ~/.claude
+          # echo "$CLAUDE_CREDENTIALS_JSON" > ~/.claude/.credentials.json
+          # chmod 600 ~/.claude/.credentials.json
+
           expect -c '
             log_user 1
             set timeout 30
             spawn claude
             expect {
+              "Yes, I trust this folder" { send "\r"; exp_continue }
               "Try" {}
               ">" {}
               timeout { exit 1 }
