@@ -1,0 +1,33 @@
+name: Check Claude Usage via CLI OAuth Token
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */4 * * *'
+
+jobs:
+  check-usage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Usage via CLI OAuth Endpoint
+        env:
+          OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $OAUTH_TOKEN" \
+            -H "anthropic-beta: oauth-2025-04-20" \
+            -H "User-Agent: claude-code/1.0.0" \
+            -H "Accept: application/json" \
+            "https://api.anthropic.com/api/oauth/usage")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "$BODY" | jq .
+          else
+            echo "Lỗi gọi API OAuth:"
+            echo "$BODY"
+            exit 1
+          fi
