@@ -20,7 +20,7 @@ jobs:
           - name: "Account 2"
             secret_name: "CLAUDE_OAUTH_TOKEN_2"
           # - name: "Account 3"
-            # secret_name: "CLAUDE_OAUTH_TOKEN_3"
+          # secret_name: "CLAUDE_OAUTH_TOKEN_3"
           # Muốn thêm tài khoản thứ 4, chỉ cần copy 2 dòng trên và đổi số thành 4
 
     steps:
