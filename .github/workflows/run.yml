@@ -1,4 +1,4 @@
-name: Claude 5h Warmup
+name: Claude 5h Warmup (Multi-Account)
 
 on:
   push:
@@ -10,31 +10,44 @@ on:
 jobs:
   claude_warmup:
     runs-on: ubuntu-latest
+    strategy:
+      # Quan trọng: Giữ false để nếu 1 tài khoản lỗi token, các tài khoản khác vẫn chạy tiếp
+      fail-fast: false
+      matrix:
+        account:
+          - name: "Account 1"
+            secret_name: "CLAUDE_OAUTH_TOKEN_1"
+          - name: "Account 2"
+            secret_name: "CLAUDE_OAUTH_TOKEN_2"
+          # - name: "Account 3"
+            # secret_name: "CLAUDE_OAUTH_TOKEN_3"
+          # Muốn thêm tài khoản thứ 4, chỉ cần copy 2 dòng trên và đổi số thành 4
 
     steps:
-      - name: Kiểm tra biến môi trường và Secret
+      - name: Kiểm tra Secret cho ${{ matrix.account.name }}
         env:
-          CLAUDE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+          # Cú pháp secrets[biến] giúp lấy động giá trị secret dựa theo tên trong matrix
+          CLAUDE_OAUTH_TOKEN: ${{ secrets[matrix.account.secret_name] }}
         run: |
+          echo "Đang kiểm tra token cho ${{ matrix.account.name }}..."
           if [ -z "$CLAUDE_OAUTH_TOKEN" ]; then
-            echo "Lỗi: Không tìm thấy CLAUDE_OAUTH_TOKEN!"
+            echo "Lỗi: Không tìm thấy secret ${{ matrix.account.secret_name }}!"
             exit 1
           else
-            echo "Đã nạp thành công CLAUDE_OAUTH_TOKEN!"
-            echo "Độ dài token: ${#CLAUDE_OAUTH_TOKEN} ký tự"
+            echo "Đã nạp thành công token (Độ dài: ${#CLAUDE_OAUTH_TOKEN} ký tự)"
           fi
 
-      - name: Trigger Claude 5h Window
+      - name: Trigger Claude 5h Window (${{ matrix.account.name }})
         timeout-minutes: 3
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_OAUTH_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets[matrix.account.secret_name] }}
         run: |
           npx -y @anthropic-ai/claude-code --version
 
           for i in 1 2 3; do
-            echo "Attempt $i..."
+            echo "[${{ matrix.account.name }}] Attempt $i..."
             if npx -y @anthropic-ai/claude-code --model haiku -p "Reply with 1"; then
-              echo "Warmup successful!"
+              echo "[${{ matrix.account.name }}] Warmup successful!"
               exit 0
             fi
             sleep 30
